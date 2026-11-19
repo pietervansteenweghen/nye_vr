@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Farm Frenzy VR</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Farm Frenzy">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.png">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/three.module.min.js",
+        "three/addons/": "./vendor/three/addons/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div id="menu" class="screen">
+    <div class="card">
+      <div class="title">🎆 Farm Frenzy 🐄</div>
+      <div class="subtitle">Look at the animals. Your laser does the rest.</div>
+
+      <button id="play-phone" class="big" disabled>📱 Play on phone</button>
+      <button id="play-vr" class="big vr" disabled>🥽 Play in Cardboard</button>
+      <div id="load-status" class="small">Loading farm… 0%</div>
+
+      <div id="ios-tip" class="tip hidden">
+        iPhone tip: for full screen, tap <b>Share → Add to Home Screen</b> and open it from there.
+      </div>
+
+      <details id="settings">
+        <summary>⚙️ Cardboard settings</summary>
+        <label>Lens distance <span id="lens-val"></span>
+          <input id="lens" type="range" min="50" max="75" step="1">
+        </label>
+        <label>Field of view <span id="fov-val"></span>
+          <input id="fov" type="range" min="60" max="110" step="1">
+        </label>
+        <label>Graphics quality
+          <select id="quality">
+            <option value="low">Low (old phones)</option>
+            <option value="med">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </label>
+      </details>
+      <div class="credits">3D models: Quaternius (CC0)</div>
+    </div>
+  </div>
+
+  <div id="rotate" class="screen hidden">
+    <div class="rotate-icon">📱↻</div>
+    <div>Turn your phone sideways, then put it in the headset</div>
+  </div>
+
+  <div id="msg" class="screen hidden"><div class="card" id="msg-text"></div></div>
+
+  <div id="ingame-buttons" class="hidden">
+    <button id="btn-exit" title="Back to menu">✕</button>
+    <button id="btn-recenter" title="Recenter view">⟲</button>
+  </div>
+  <div id="vr-divider" class="hidden"></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

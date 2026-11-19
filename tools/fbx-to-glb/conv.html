@@ -1,0 +1,48 @@
+<!doctype html><html><head><script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script></head><body>
+<script type="module">
+import * as THREE from 'three';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+// FBX import yields many tiny groups (one per polygon run); regroup so each
+// material is one contiguous range => one draw call per material.
+function regroup(geo) {
+  if (!geo.groups.length) return geo;
+  const g = geo.index ? geo.toNonIndexed() : geo;
+  const mats = [...new Set(g.groups.map(x => x.materialIndex))].sort((a, b) => a - b);
+  const out = new THREE.BufferGeometry();
+  const order = [];
+  const groups = [];
+  for (const mi of mats) {
+    const start = order.length;
+    for (const grp of g.groups) if (grp.materialIndex === mi) for (let i = grp.start; i < grp.start + grp.count; i++) order.push(i);
+    groups.push({ start, count: order.length - start, materialIndex: mi });
+  }
+  for (const [name, attr] of Object.entries(g.attributes)) {
+    const isz = attr.itemSize, arr = new attr.array.constructor(order.length * isz);
+    order.forEach((src, dst) => { for (let k = 0; k < isz; k++) arr[dst * isz + k] = attr.array[src * isz + k]; });
+    out.setAttribute(name, new THREE.BufferAttribute(arr, isz, attr.normalized));
+  }
+  groups.forEach(x => out.addGroup(x.start, x.count, x.materialIndex));
+  const merged = mergeVertices(out);
+  return merged;
+}
+window.inspect = async (name, dir='fbx') => {
+  const obj = await new FBXLoader().loadAsync(dir + '/' + name + '.fbx');
+  const box = new THREE.Box3().setFromObject(obj);
+  const mats = new Set(); let meshes = 0, tris = 0, skinned = 0;
+  obj.traverse(o => { if (o.isMesh) { meshes++; if (o.isSkinnedMesh) skinned++; tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => mats.add(m.type + ':' + m.name + ':#' + m.color.getHexString() + (m.map ? ':map' : ''))); } });
+  return { name, size: box.getSize(new THREE.Vector3()).toArray().map(v => +v.toFixed(2)), meshes, skinned, tris, mats: [...mats], anims: obj.animations.map(a => a.name + '(' + a.duration.toFixed(2) + 's)') };
+};
+window.convert = async (name, renames, dir='fbx') => {
+  const obj = await new FBXLoader().loadAsync(dir + '/' + name + '.fbx');
+  obj.animations.forEach(a => { a.name = a.name.replace('Armature|',''); });
+  obj.animations = obj.animations.filter(a => ['Walk','Run','Jump'].includes(a.name));
+  // swap Phong -> Standard (flat cartoon look) to keep exporter happy
+  obj.traverse(o => { if (o.isMesh) { o.geometry = regroup(o.geometry); const conv = m => { const s = new THREE.MeshStandardMaterial({ color: m.color, name: m.name, roughness: 0.9, metalness: 0, flatShading: true }); return s; }; o.material = Array.isArray(o.material) ? o.material.map(conv) : conv(o.material); } });
+  const glb = await new GLTFExporter().parseAsync(obj, { binary: true, animations: obj.animations });
+  const b = new Uint8Array(glb); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+  return btoa(s);
+};
+window.ready = true;
+</script></body></html>

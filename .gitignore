@@ -1,0 +1,4 @@
+node_modules/
+.DS_Store
+tools/fbx-to-glb/fbx/
+tools/fbx-to-glb/out/
