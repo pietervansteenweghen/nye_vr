@@ -104,8 +104,8 @@ function showMessage(html, ms = 4000) {
 // ---------- start / stop ----------
 async function play(selectedMode) {
   // These three must happen synchronously inside the tap.
-  sfx.unlock();
   sfx.musicOn = settings.music;
+  sfx.unlock();
   const permission = LookControls.requestPermission();
   const fs = enterFullscreen(selectedMode === 'vr');
 

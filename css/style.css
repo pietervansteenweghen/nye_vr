@@ -37,7 +37,8 @@ label input, label select { display: block; width: 100%; margin-top: 4px; }
 label.row { display: flex; align-items: center; gap: 8px; }
 label.row input { width: auto; margin: 0; }
 #btn-music.off { opacity: 0.4; }
-.credits { font-size: 11px; opacity: 0.45; margin-top: 18px; }
+.credits { font-size: 11px; opacity: 0.55; margin-top: 18px; line-height: 1.5; }
+.credits a { color: inherit; }
 
 #rotate { background: #111; flex-direction: column; gap: 16px; font-size: 20px; text-align: center; z-index: 20; }
 .rotate-icon { font-size: 64px; animation: wobble 1.6s ease-in-out infinite; }

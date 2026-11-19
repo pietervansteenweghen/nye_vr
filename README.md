@@ -50,7 +50,7 @@ This is a static site: no build step, no dependencies to install.
 | `js/farmer.js` | The talking farmer (blocky character + speech bubble) |
 | `js/hud.js` | In-world HUD and reticle (3D, so it works in both eyes) |
 | `js/effects.js` | Explosions, confetti, floating scores, laser beam |
-| `js/audio.js` | Synthesised sounds: 3D pig grunts, explosions, an original farm tune and rock loop |
+| `js/audio.js` | 3D pig grunts, explosions (synthesised) and music playback with crossfade |
 | `assets/models` | Low-poly GLB models (Quaternius, CC0), see `CREDITS.md` |
 
 ## Farmer face (optional)
@@ -60,9 +60,13 @@ face. Note the repo/site is public, so only do this with the person's OK.
 
 ## Music
 
-The soundtrack is original and generated in code. Commercial songs can't be
-bundled into a public website, so for a specific song, play it on the venue
-speakers. That's louder than 20 phone speakers anyway.
+Recorded tracks by Kevin MacLeod (incompetech.com, CC BY 4.0, credited on the
+start screen): "Hillbilly Swing" for the farmer intro and "Cool Rock" during
+the game. To use the other rock track ("Chipper"), change `TRACKS.rock` in
+`js/audio.js` to `assets/music/rock-alt.mp3`.
+
+Commercial songs can't go in here: a GitHub Pages site is public even when the
+repo is private. For a specific song, play it on the venue speakers.
 
 ## Roadmap
 

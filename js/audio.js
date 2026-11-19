@@ -1,10 +1,16 @@
 // All sound is synthesised with WebAudio: no audio files to load.
 // - laser hum, explosions
 // - pig grunts/squeals, positioned in 3D so you hear where pigs come from
-// - an original hard-rock boogie loop as soundtrack
+// - music: recorded tracks by Kevin MacLeod (CC BY 4.0), see CREDITS.md
 // Note: on iPhone the ring/silent switch can mute web audio.
 
-const MUSIC_VOLUME = 0.6;
+const MUSIC_VOLUME = 0.45;
+
+// Swap `rock` to 'assets/music/rock-alt.mp3' for the other rock track.
+const TRACKS = {
+  farm: 'assets/music/farm.mp3',   // "Hillbilly Swing" - intro with the farmer
+  rock: 'assets/music/rock.mp3',   // "Cool Rock" - during the game
+};
 
 // A short silent WAV, generated once (used for the iOS unmute trick).
 let _silentUrl = null;
@@ -22,7 +28,7 @@ function silentWavUrl() {
 }
 
 export class Sfx {
-  constructor() { this.ctx = null; this.laser = null; this.musicOn = true; this._musicTimer = null; this.track = 'farm'; }
+  constructor() { this.ctx = null; this.laser = null; this.musicOn = true; this.tracks = null; this.track = 'farm'; }
 
   // Must be called from inside a tap handler.
   unlock() {
@@ -56,9 +62,9 @@ export class Sfx {
       this.musicBus.gain.value = MUSIC_VOLUME;
       this.musicBus.connect(this.master);
       this._noiseBuf = this._makeNoise(1.5);
-      this._dist = this._makeDistortion(60);
     }
     if (this.ctx.state !== 'running') this.ctx.resume();
+    this._initMusic(); // must happen inside the tap on iPhone
   }
 
   // Call when the app comes back to the foreground (iOS suspends audio).
@@ -73,11 +79,6 @@ export class Sfx {
     const d = buf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     return buf;
-  }
-  _makeDistortion(k) {
-    const n = 1024, curve = new Float32Array(n);
-    for (let i = 0; i < n; i++) { const x = (i * 2) / n - 1; curve[i] = ((1 + k) * x) / (1 + k * Math.abs(x)); }
-    return curve;
   }
   _noise() { const s = this.ctx.createBufferSource(); s.buffer = this._noiseBuf; return s; }
 
@@ -235,8 +236,29 @@ export class Sfx {
   }
 
   // ---------- music ----------
-  // Two original tracks: 'farm' (cheerful banjo-ish farm tune for the intro)
-  // and 'rock' (12-bar boogie in E for the game).
+  // Recorded tracks (see CREDITS.md), streamed via <audio> elements and routed
+  // through WebAudio so the volume works on iPhone too.
+  _initMusic() {
+    if (this.tracks) return;
+    this.tracks = {};
+    for (const [name, url] of Object.entries(TRACKS)) {
+      const el = new Audio(url);
+      el.loop = true;
+      el.preload = 'auto';
+      el.crossOrigin = 'anonymous';
+      el.setAttribute('playsinline', '');
+      const gain = this.ctx.createGain();
+      gain.gain.value = 0;
+      try { this.ctx.createMediaElementSource(el).connect(gain); gain.connect(this.musicBus); }
+      catch { /* very old browsers: plays at element volume */ }
+      // Unlock playback now, inside the tap (iOS only allows play() from a gesture).
+      el.muted = true;
+      el.play().then(() => { if (this.track !== name || !this.musicOn) el.pause(); el.muted = false; })
+        .catch(() => { el.muted = false; });
+      this.tracks[name] = { el, gain };
+    }
+  }
+
   setMusic(on) {
     this.musicOn = on;
     if (on) this.startMusic(this.track); else this.stopMusic();
@@ -244,127 +266,25 @@ export class Sfx {
 
   startMusic(track = 'rock') {
     if (!this.ctx) return;
-    const changed = track !== this.track;
+    this._initMusic();
     this.track = track;
     if (!this.musicOn) return;
-    if (this._musicTimer && !changed) return;
-    this.stopMusic();
-    this._step = 0;
-    this._nextTime = this.ctx.currentTime + 0.1;
-    this.musicBus.gain.cancelScheduledValues(this.ctx.currentTime);
-    this.musicBus.gain.setValueAtTime(MUSIC_VOLUME, this.ctx.currentTime);
-    this._musicTimer = setInterval(() => this._schedule(), 25);
+    const t = this.ctx.currentTime;
+    for (const [name, { el, gain }] of Object.entries(this.tracks)) {
+      gain.gain.cancelScheduledValues(t);
+      gain.gain.setValueAtTime(gain.gain.value, t);
+      if (name === track) {
+        if (el.paused) { el.currentTime = 0; el.play().catch(() => {}); }
+        gain.gain.linearRampToValueAtTime(1, t + 0.6);   // fade in
+      } else if (!el.paused) {
+        gain.gain.linearRampToValueAtTime(0, t + 0.6);   // fade out, then pause
+        setTimeout(() => { if (this.track !== name) el.pause(); }, 700);
+      }
+    }
   }
 
   stopMusic() {
-    if (this._musicTimer) clearInterval(this._musicTimer);
-    this._musicTimer = null;
-  }
-
-  _schedule() {
-    const bpm = this.track === 'farm' ? 120 : 132;
-    const eighth = 60 / bpm / 2;
-    while (this._nextTime < this.ctx.currentTime + 0.12) {
-      if (this.track === 'farm') this._farmStep(this._step, this._nextTime, eighth);
-      else this._playStep(this._step, this._nextTime, eighth);
-      this._nextTime += eighth * (this.track === 'farm' ? (this._step % 2 ? 0.8 : 1.2) : 1); // swing for farm
-      this._step++;
-    }
-  }
-
-  // Farm tune: plucky "banjo" melody over oom-pah bass, in C major, 8 bars.
-  _farmStep(step, t, len) {
-    const bar = Math.floor(step / 8) % 8, beat = step % 8;
-    const chords = [60, 60, 65, 60, 67, 65, 67, 60]; // C C F C G F G C
-    const root = chords[bar];
-    // Melody: 0 = rest.
-    const mel = [
-      [72, 0, 76, 0, 79, 76, 72, 0], [74, 0, 76, 74, 72, 0, 67, 0],
-      [69, 0, 72, 0, 77, 76, 74, 0], [72, 74, 76, 0, 72, 0, 0, 0],
-      [74, 0, 79, 0, 77, 76, 74, 0], [72, 0, 77, 0, 76, 74, 72, 0],
-      [71, 0, 74, 77, 79, 0, 74, 71], [72, 0, 67, 0, 72, 0, 0, 0],
-    ][bar][beat];
-    if (mel) this._pluck(mel, t, 0.22, 0.28);
-    // Banjo roll on off-beats.
-    if (beat % 2 === 1) this._pluck(root + 12 + (beat === 3 ? 4 : beat === 5 ? 7 : 12), t, 0.12, 0.1);
-    // Oom-pah bass.
-    if (beat === 0) this._pluck(root - 24, t, 0.3, 0.45, 'triangle');
-    if (beat === 4) this._pluck(root - 17, t, 0.3, 0.4, 'triangle');
-    if (beat === 2 || beat === 6) { this._pluck(root, t, 0.12, 0.08); this._pluck(root + 4, t, 0.12, 0.08); this._clap(t); }
-  }
-
-  _pluck(n, t, dur, vol, type = 'square') {
-    vol *= 1.8;
-    const o = this.ctx.createOscillator(); o.type = type; o.frequency.value = this._hz(n);
-    const f = this.ctx.createBiquadFilter(); f.type = 'lowpass';
-    f.frequency.setValueAtTime(4000, t); f.frequency.exponentialRampToValueAtTime(600, t + dur);
-    o.connect(f); this._env(f, t, 0.003, vol, dur, this.musicBus); o.start(t); o.stop(t + dur + 0.05);
-  }
-
-  _clap(t) {
-    const n = this._noise(); const bp = this.ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1800; bp.Q.value = 1.5;
-    n.connect(bp); this._env(bp, t, 0.002, 0.25, 0.07, this.musicBus); n.start(t, Math.random()); n.stop(t + 0.1);
-  }
-
-  // Rock: 12 bars x 8 eighths, boogie shuffle in E.
-  _playStep(step, t, len) {
-    const bars = [40, 40, 40, 40, 45, 45, 40, 40, 47, 45, 40, 47]; // E2 A2 B2 roots (MIDI)
-    const bar = Math.floor(step / 8) % 12, beat = step % 8;
-    const root = bars[bar];
-    const upper = [7, 7, 9, 9, 10, 10, 9, 9][beat];
-    this._guitar(root, root + upper, t, len * 0.9, beat % 2 === 0 ? 1 : 0.7);
-    this._bass(root - 12 + (beat >= 4 && beat < 6 ? 7 : 0), t, len * 0.9);
-    if (beat === 0 || beat === 4 || (beat === 5 && bar % 2 === 1)) this._kick(t);
-    if (beat === 2 || beat === 6) this._snare(t);
-    this._hat(t, beat % 2 === 0 ? 0.25 : 0.12);
-    if (bar % 4 === 3 && beat >= 4) this._lead(root + 24 + [3, 5, 7, 10][beat - 4], t, len * 0.85);
-  }
-
-  _hz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
-
-  _guitar(n1, n2, t, dur, vel) {
-    const sh = this.ctx.createWaveShaper(); sh.curve = this._dist;
-    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400;
-    for (const n of [n1, n2, n1 + 12]) {
-      const o = this.ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = this._hz(n);
-      o.detune.value = (Math.random() - 0.5) * 12;
-      const g = this.ctx.createGain(); g.gain.value = 0.18;
-      o.connect(g); g.connect(sh); o.start(t); o.stop(t + dur + 0.05);
-    }
-    sh.connect(lp);
-    this._env(lp, t, 0.005, 0.35 * vel, dur, this.musicBus);
-  }
-
-  _bass(n, t, dur) {
-    const o = this.ctx.createOscillator(); o.type = 'square'; o.frequency.value = this._hz(n);
-    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 500;
-    o.connect(lp); this._env(lp, t, 0.005, 0.5, dur, this.musicBus); o.start(t); o.stop(t + dur + 0.05);
-  }
-
-  _kick(t) {
-    const o = this.ctx.createOscillator(); o.type = 'sine';
-    o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
-    this._env(o, t, 0.002, 1.1, 0.18, this.musicBus); o.start(t); o.stop(t + 0.25);
-  }
-
-  _snare(t) {
-    const n = this._noise(); const hp = this.ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1500;
-    n.connect(hp); this._env(hp, t, 0.002, 0.6, 0.16, this.musicBus); n.start(t, Math.random()); n.stop(t + 0.2);
-    const o = this.ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = 190;
-    this._env(o, t, 0.002, 0.35, 0.08, this.musicBus); o.start(t); o.stop(t + 0.12);
-  }
-
-  _hat(t, vol) {
-    const n = this._noise(); const hp = this.ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 7500;
-    n.connect(hp); this._env(hp, t, 0.001, vol, 0.04, this.musicBus); n.start(t, Math.random()); n.stop(t + 0.06);
-  }
-
-  _lead(n, t, dur) {
-    const sh = this.ctx.createWaveShaper(); sh.curve = this._dist;
-    const o = this.ctx.createOscillator(); o.type = 'square'; o.frequency.value = this._hz(n);
-    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3000;
-    const g = this.ctx.createGain(); g.gain.value = 0.2;
-    o.connect(g); g.connect(sh); sh.connect(lp);
-    this._env(lp, t, 0.005, 0.22, dur, this.musicBus); o.start(t); o.stop(t + dur + 0.05);
+    if (!this.tracks) return;
+    for (const { el, gain } of Object.values(this.tracks)) { el.pause(); gain.gain.value = 0; }
   }
 }
