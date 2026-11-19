@@ -74,7 +74,7 @@ let wakeLock = null;
 async function keepAwake() {
   try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch { /* not allowed */ }
 }
-document.addEventListener('visibilitychange', () => { if (running && document.visibilityState === 'visible') keepAwake(); });
+document.addEventListener('visibilitychange', () => { if (running && document.visibilityState === 'visible') { keepAwake(); sfx.resume(); } });
 
 function enterFullscreen(landscape) {
   const el = document.documentElement;
@@ -161,7 +161,7 @@ $('btn-music').addEventListener('click', e => {
 });
 
 // A tap (or the Cardboard button, which taps the screen) = laser burst.
-canvas.addEventListener('pointerdown', () => { if (running) game.tap(); });
+canvas.addEventListener('pointerdown', () => { if (running) { sfx.resume(); game.tap(); } });
 window.addEventListener('keydown', e => { if (running && e.code === 'Space') game.tap(); });
 
 // ---------- loop ----------

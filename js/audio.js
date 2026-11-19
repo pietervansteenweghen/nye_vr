@@ -4,25 +4,67 @@
 // - an original hard-rock boogie loop as soundtrack
 // Note: on iPhone the ring/silent switch can mute web audio.
 
+const MUSIC_VOLUME = 0.6;
+
+// A short silent WAV, generated once (used for the iOS unmute trick).
+let _silentUrl = null;
+function silentWavUrl() {
+  if (_silentUrl) return _silentUrl;
+  const rate = 8000, n = rate / 2, buf = new ArrayBuffer(44 + n), v = new DataView(buf);
+  const str = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+  str(0, 'RIFF'); v.setUint32(4, 36 + n, true); str(8, 'WAVE'); str(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+  str(36, 'data'); v.setUint32(40, n, true);
+  for (let i = 0; i < n; i++) v.setUint8(44 + i, 128);
+  _silentUrl = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+  return _silentUrl;
+}
+
 export class Sfx {
   constructor() { this.ctx = null; this.laser = null; this.musicOn = true; this._musicTimer = null; this.track = 'farm'; }
 
   // Must be called from inside a tap handler.
   unlock() {
+    // iPhone: by default web audio is muted by the ring/silent switch.
+    // Declaring "playback" (Safari 17+) makes it behave like a video/music app.
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* older iOS */ }
+    // Older iOS: playing a (silent) <audio> element in the tap does the same.
+    if (!this._silent) {
+      this._silent = new Audio(silentWavUrl());
+      this._silent.loop = true;
+      this._silent.setAttribute('playsinline', '');
+    }
+    this._silent.play().catch(() => {});
+
     if (!this.ctx) {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return;
       this.ctx = new AC();
+      // Limiter at the end so we can play loud without distorting.
+      this.limiter = this.ctx.createDynamicsCompressor();
+      this.limiter.threshold.value = -10;
+      this.limiter.knee.value = 6;
+      this.limiter.ratio.value = 8;
+      this.limiter.attack.value = 0.003;
+      this.limiter.release.value = 0.2;
+      this.limiter.connect(this.ctx.destination);
       this.master = this.ctx.createGain();
-      this.master.gain.value = 0.7;
-      this.master.connect(this.ctx.destination);
+      this.master.gain.value = 1.4;
+      this.master.connect(this.limiter);
       this.musicBus = this.ctx.createGain();
-      this.musicBus.gain.value = 0.32;
+      this.musicBus.gain.value = MUSIC_VOLUME;
       this.musicBus.connect(this.master);
       this._noiseBuf = this._makeNoise(1.5);
       this._dist = this._makeDistortion(60);
     }
     if (this.ctx.state !== 'running') this.ctx.resume();
+  }
+
+  // Call when the app comes back to the foreground (iOS suspends audio).
+  resume() {
+    if (this.ctx && this.ctx.state !== 'running') this.ctx.resume();
+    this._silent?.play().catch(() => {});
   }
 
   _makeNoise(dur) {
@@ -210,7 +252,7 @@ export class Sfx {
     this._step = 0;
     this._nextTime = this.ctx.currentTime + 0.1;
     this.musicBus.gain.cancelScheduledValues(this.ctx.currentTime);
-    this.musicBus.gain.setValueAtTime(0.32, this.ctx.currentTime);
+    this.musicBus.gain.setValueAtTime(MUSIC_VOLUME, this.ctx.currentTime);
     this._musicTimer = setInterval(() => this._schedule(), 25);
   }
 
@@ -252,6 +294,7 @@ export class Sfx {
   }
 
   _pluck(n, t, dur, vol, type = 'square') {
+    vol *= 1.8;
     const o = this.ctx.createOscillator(); o.type = type; o.frequency.value = this._hz(n);
     const f = this.ctx.createBiquadFilter(); f.type = 'lowpass';
     f.frequency.setValueAtTime(4000, t); f.frequency.exponentialRampToValueAtTime(600, t + dur);
