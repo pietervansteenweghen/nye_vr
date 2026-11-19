@@ -12,7 +12,7 @@ import { FarmGame } from './game.js';
 const $ = id => document.getElementById(id);
 
 // ---------- settings (saved per phone) ----------
-const DEFAULTS = { lensMM: 62, fov: 85, quality: 'med' };
+const DEFAULTS = { lensMM: 62, fov: 85, quality: 'med', music: true };
 function loadSettings() {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('nye-vr-settings') || '{}') }; } catch { return { ...DEFAULTS }; }
 }
@@ -24,8 +24,9 @@ if (params.has('quality')) settings.quality = params.get('quality');
 function saveSettings() { try { localStorage.setItem('nye-vr-settings', JSON.stringify(settings)); } catch { /* ignore */ } }
 
 function bindSettings() {
-  const lens = $('lens'), fov = $('fov'), q = $('quality');
-  lens.value = settings.lensMM; fov.value = settings.fov; q.value = settings.quality;
+  const lens = $('lens'), fov = $('fov'), q = $('quality'), music = $('music');
+  lens.value = settings.lensMM; fov.value = settings.fov; q.value = settings.quality; music.checked = settings.music;
+  music.onchange = () => { settings.music = music.checked; saveSettings(); updateMusicButton(); };
   const show = () => { $('lens-val').textContent = `${settings.lensMM} mm`; $('fov-val').textContent = `${settings.fov}°`; };
   show();
   lens.oninput = () => { settings.lensMM = +lens.value; show(); saveSettings(); view.resize(); };
@@ -54,18 +55,18 @@ if (isIOS && !isStandalone) $('ios-tip').classList.remove('hidden');
 
 bindSettings();
 
-const assetsReady = loadAssets(p => { $('load-status').textContent = `Loading farm… ${Math.round(p * 100)}%`; })
+const assetsReady = loadAssets(p => { $('load-status').textContent = `Boerderij laden… ${Math.round(p * 100)}%`; })
   .then(assets => {
     buildFarm(scene, assets);
     game = new FarmGame({ scene, camera, controls, hud, effects, sfx, assets });
-    $('load-status').textContent = 'Ready!';
+    $('load-status').textContent = 'Klaar!';
     $('play-phone').disabled = $('play-vr').disabled = false;
     // Render one frame so the menu has the farm behind it once you exit.
     view.render(scene, camera);
   })
   .catch(err => {
     console.error(err);
-    $('load-status').textContent = 'Could not load the game: ' + err.message;
+    $('load-status').textContent = 'Het spel kon niet laden: ' + err.message;
   });
 
 // ---------- wake lock & fullscreen ----------
@@ -104,6 +105,7 @@ function showMessage(html, ms = 4000) {
 async function play(selectedMode) {
   // These three must happen synchronously inside the tap.
   sfx.unlock();
+  sfx.musicOn = settings.music;
   const permission = LookControls.requestPermission();
   const fs = enterFullscreen(selectedMode === 'vr');
 
@@ -115,8 +117,8 @@ async function play(selectedMode) {
   setTimeout(() => {
     if (running && !controls.hasSensor && navigator.maxTouchPoints > 0) {
       showMessage(granted
-        ? 'No motion sensor data. You can look around by dragging.'
-        : 'Motion access was blocked, so you can only look around by dragging.<br><br>To fix: fully close this tab, open the link again and tap <b>Allow</b>.', 6000);
+        ? 'Geen bewegingssensor gevonden. Je kan rondkijken door te slepen.'
+        : 'Toegang tot beweging werd geweigerd, dus je kan enkel rondkijken door te slepen.<br><br>Oplossen: sluit dit tabblad volledig, open de link opnieuw en tik op <b>Sta toe</b>.', 6000);
     }
   }, 1500);
   keepAwake();
@@ -150,6 +152,13 @@ $('play-phone').addEventListener('click', () => play('phone'));
 $('play-vr').addEventListener('click', () => play('vr'));
 $('btn-exit').addEventListener('click', e => { e.stopPropagation(); backToMenu(); });
 $('btn-recenter').addEventListener('click', e => { e.stopPropagation(); controls.recenter(); });
+function updateMusicButton() { $('btn-music').classList.toggle('off', !settings.music); }
+updateMusicButton();
+$('btn-music').addEventListener('click', e => {
+  e.stopPropagation();
+  settings.music = !settings.music; $('music').checked = settings.music;
+  saveSettings(); updateMusicButton(); sfx.setMusic(settings.music);
+});
 
 // A tap (or the Cardboard button, which taps the screen) = laser burst.
 canvas.addEventListener('pointerdown', () => { if (running) game.tap(); });
@@ -163,8 +172,10 @@ view.renderer.setAnimationLoop(() => {
   controls.update();
   game.update(dt);
   effects.update(dt);
-  hud.update(dt);
+  hud.update(dt, clock.elapsedTime);
   hud.layout(view.fov, view.aspect);
+  camera.updateMatrixWorld();
+  sfx.updateListener(camera);
   view.render(scene, camera);
 });
 

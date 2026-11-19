@@ -1,14 +1,14 @@
 <!doctype html>
-<html lang="en">
+<html lang="nl">
 <head>
   <meta charset="utf-8">
-  <title>Farm Frenzy VR</title>
+  <title>Voorbeeldje Spelleke NYE</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#000000">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Farm Frenzy">
+  <meta name="apple-mobile-web-app-title" content="Spelleke NYE">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.png">
   <link rel="apple-touch-icon" href="icon.png">
@@ -27,47 +27,50 @@
 
   <div id="menu" class="screen">
     <div class="card">
-      <div class="title">🎆 Farm Frenzy 🐄</div>
-      <div class="subtitle">Look at the animals. Your laser does the rest.</div>
+      <div class="kicker">Voorbeeld oudejaarsspel · MVP</div>
+      <div class="title">🎆 Voorbeeldje Spelleke NYE 🐷</div>
+      <div class="subtitle">Kijk naar de varkens. Je laser doet de rest.</div>
 
-      <button id="play-phone" class="big" disabled>📱 Play on phone</button>
-      <button id="play-vr" class="big vr" disabled>🥽 Play in Cardboard</button>
-      <div id="load-status" class="small">Loading farm… 0%</div>
+      <button id="play-phone" class="big" disabled>📱 Speel op je gsm</button>
+      <button id="play-vr" class="big vr" disabled>🥽 Speel met VR-bril</button>
+      <div id="load-status" class="small">Boerderij laden… 0%</div>
 
       <div id="ios-tip" class="tip hidden">
-        iPhone tip: for full screen, tap <b>Share → Add to Home Screen</b> and open it from there.
+        iPhone-tip: voor volledig scherm tik je op <b>Deel → Zet op beginscherm</b> en open je het spel van daaruit.
       </div>
 
       <details id="settings">
-        <summary>⚙️ Cardboard settings</summary>
-        <label>Lens distance <span id="lens-val"></span>
+        <summary>⚙️ Instellingen</summary>
+        <label class="row"><input id="music" type="checkbox"> 🎸 Muziek</label>
+        <label>Lensafstand VR-bril <span id="lens-val"></span>
           <input id="lens" type="range" min="50" max="75" step="1">
         </label>
-        <label>Field of view <span id="fov-val"></span>
+        <label>Gezichtsveld VR-bril <span id="fov-val"></span>
           <input id="fov" type="range" min="60" max="110" step="1">
         </label>
-        <label>Graphics quality
+        <label>Grafische kwaliteit
           <select id="quality">
-            <option value="low">Low (old phones)</option>
-            <option value="med">Medium</option>
-            <option value="high">High</option>
+            <option value="low">Laag (oude gsm)</option>
+            <option value="med">Normaal</option>
+            <option value="high">Hoog</option>
           </select>
         </label>
       </details>
-      <div class="credits">3D models: Quaternius (CC0)</div>
+      <div class="credits">3D-modellen: Quaternius (CC0) · muziek en geluid: zelfgemaakt</div>
     </div>
   </div>
 
   <div id="rotate" class="screen hidden">
     <div class="rotate-icon">📱↻</div>
-    <div>Turn your phone sideways, then put it in the headset</div>
+    <div>Draai je gsm horizontaal en steek hem in de VR-bril</div>
   </div>
 
   <div id="msg" class="screen hidden"><div class="card" id="msg-text"></div></div>
 
   <div id="ingame-buttons" class="hidden">
-    <button id="btn-exit" title="Back to menu">✕</button>
-    <button id="btn-recenter" title="Recenter view">⟲</button>
+    <button id="btn-exit" title="Terug naar menu">✕</button>
+    <button id="btn-recenter" title="Opnieuw centreren">⟲</button>
+    <button id="btn-music" title="Muziek aan/uit">🎵</button>
   </div>
   <div id="vr-divider" class="hidden"></div>
 

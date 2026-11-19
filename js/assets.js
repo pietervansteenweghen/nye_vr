@@ -2,13 +2,12 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-export const ANIMALS = ['cow', 'horse', 'zebra', 'pig', 'sheep', 'llama', 'pug'];
+export const ANIMALS = ['pig'];
 
 // Target height in metres for each nature model.
 export const NATURE = {
-  commontree_1: 7, commontree_3: 8, pinetree_1: 8, pinetree_3: 10,
-  bush_1: 1.3, bushberries_1: 1.3, rock_1: 1.4, rock_moss_2: 1.1,
-  flowers: 0.5, grass: 0.55, wheat: 1.1, corn_1: 2.0, treestump: 0.6, woodlog: 0.7,
+  commontree_1: 9, commontree_3: 10, pinetree_1: 10,
+  bush_1: 2.2, flowers: 0.5, grass: 0.55,
 };
 
 // Swap the exported materials for cheap Lambert (fast on phones). We avoid

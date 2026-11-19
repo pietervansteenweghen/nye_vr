@@ -34,6 +34,10 @@ export class Hud {
     this.center.mesh.position.set(0, 0.15, -HUD_DIST);
     this.root.add(this.center.mesh);
 
+    this.warn = canvasPlane(1.6, 0.2, 1024, 128);
+    this.warn.mesh.visible = false;
+    this.root.add(this.warn.mesh);
+
     // Reticle: dot + ring that fills up while locked on a target.
     const mat = c => new THREE.MeshBasicMaterial({ color: c, depthTest: false, depthWrite: false, transparent: true, fog: false });
     this.dot = new THREE.Mesh(new THREE.CircleGeometry(0.008, 12), mat(0xffffff));
@@ -59,10 +63,13 @@ export class Hud {
     this.bar.mesh.scale.setScalar(s);
     this.bar.mesh.position.set(0, halfH * 0.78 - 0.125 * s, -HUD_DIST);
     this.center.mesh.scale.setScalar(Math.min(1, (halfW * 1.9) / 1.6));
+    this.warn.mesh.scale.setScalar(Math.min(1, (halfW * 1.8) / 1.6));
+    this.warn.mesh.position.set(0, -halfH * 0.55, -HUD_DIST);
   }
 
-  setBar(score, hearts, timeLeft) {
-    const key = `${score}|${hearts}|${Math.ceil(timeLeft)}`;
+  setBar(score, seconds) {
+    const t = Math.floor(seconds);
+    const key = `${score}|${t}`;
     if (key === this._lastBar) return;
     this._lastBar = key;
     const { ctx: g, canvas, tex } = this.bar;
@@ -70,11 +77,21 @@ export class Hud {
     g.textBaseline = 'middle';
     g.textAlign = 'left';
     outlinedText(g, `⭐ ${score}`, 24, 66, 72, '#ffd23f');
-    g.textAlign = 'center';
-    outlinedText(g, '❤️'.repeat(Math.max(0, hearts)) + '🖤'.repeat(Math.max(0, 5 - hearts)), 512, 66, 56);
     g.textAlign = 'right';
-    outlinedText(g, `⏱ ${Math.max(0, Math.ceil(timeLeft))}`, 1000, 66, 72);
+    outlinedText(g, `⏱ ${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`, 1000, 66, 72);
     tex.needsUpdate = true;
+  }
+
+  // Warning shown low in the view, e.g. "VARKEN ACHTER JE!".
+  setWarning(text) {
+    if (text === this._lastWarn) return;
+    this._lastWarn = text;
+    const { ctx: g, canvas, tex, mesh } = this.warn;
+    g.clearRect(0, 0, canvas.width, canvas.height);
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    if (text) outlinedText(g, text, canvas.width / 2, canvas.height / 2, 80, '#ff4d6d');
+    tex.needsUpdate = true;
+    mesh.visible = !!text;
   }
 
   setCenter(lines) {
@@ -108,7 +125,8 @@ export class Hud {
 
   flashRed() { this.redFlash.material.opacity = 0.45; }
 
-  update(dt) {
+  update(dt, time = 0) {
+    if (this.warn.mesh.visible) this.warn.mesh.material.opacity = 0.6 + 0.4 * Math.sin(time * 12);
     const m = this.redFlash.material;
     if (m.opacity > 0) m.opacity = Math.max(0, m.opacity - dt * 1.2);
     this.redFlash.visible = m.opacity > 0;
